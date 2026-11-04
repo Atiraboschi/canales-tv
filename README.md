@@ -2,7 +2,11 @@
 
 Grilla de señales oficiales para TizenBrew. La lista está en `canales.json`.
 
-## Agregar un canal
+## Agregar desde la tele
+
+Entrá a **+ Agregar**, poné un nombre y el enlace. Queda guardado en esa tele. Para borrarlo, marcalo y tocá el botón rojo.
+
+## Agregar para todas las pantallas
 
 1. Abrí `canales.json` en GitHub y tocá el lápiz.
 2. Copiá una línea y cambiá sus datos. Todas las líneas llevan coma, menos la última.

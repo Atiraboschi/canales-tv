@@ -30,18 +30,39 @@
     background:rgba(0,0,0,.78); transition:opacity .4s; }
   #tag i { display:inline-block; width:18px; height:18px; margin-right:14px; border-radius:50%; background:var(--live); }
   #tag.hide { opacity:0; }
+  .ch.add .name { color:var(--on); }
+  .ch.add.focus .name { color:#121212; }
+  #form { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.86); }
+  #form.open { display:flex; }
+  #form > div { width:1160px; padding:52px; background:var(--panel); border:4px solid var(--line); border-radius:14px; }
+  #form h2 { margin:0 0 30px; font-size:48px; }
+  #form label { display:block; margin:22px 0 10px; font-size:28px; color:var(--muted); }
+  #form input { width:100%; padding:20px 24px; font:inherit; font-size:34px; color:var(--text); background:var(--bg); border:4px solid var(--line); border-radius:10px; outline:0; }
+  #form button { margin:34px 20px 0 0; padding:18px 44px; font:inherit; font-size:32px; font-weight:700; color:var(--text); background:var(--bg); border:4px solid var(--line); border-radius:10px; }
+  #form .sel { border-color:var(--on); }
+  #form button.sel { background:var(--on); color:#121212; }
+  #hint { margin-top:24px; min-height:36px; font-size:28px; color:var(--on); }
 </style>
 </head>
 <body>
 <main id="home">
   <header><h1>Canales</h1><div id="clock"></div></header>
   <section id="grid"></section>
-  <footer><b>OK</b> mirar &nbsp;·&nbsp; <b>CH +/−</b> cambiar de canal &nbsp;·&nbsp; <b>Volver</b> salir del canal</footer>
+  <footer><b>OK</b> mirar &nbsp;·&nbsp; <b>CH +/−</b> cambiar de canal &nbsp;·&nbsp; <b>Volver</b> salir &nbsp;·&nbsp; <b>Rojo</b> borrar canal propio</footer>
 </main>
 <section id="player">
   <iframe id="frame" title="Señal en vivo" allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
   <video id="video" autoplay playsinline></video>
   <div id="tag" class="hide"></div>
+</section>
+<section id="form">
+  <div>
+    <h2>Agregar transmisión</h2>
+    <label for="fName">Nombre</label><input id="fName" autocomplete="off">
+    <label for="fUrl">Enlace (.m3u8 o reproductor web)</label><input id="fUrl" autocomplete="off" inputmode="url">
+    <div><button id="fSave">Guardar</button><button id="fCancel">Cancelar</button></div>
+    <div id="hint"></div>
+  </div>
 </section>
 <script>
 (function () {
@@ -57,7 +78,12 @@
     { name: 'Telefe',     kind: 'General',   id: 'UCHc3el42hXKKhjs_1vzWk9A' }
   ];
   var video = document.getElementById('video'), hlsPlayer = null;
-  var COLUMNS = 4, KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009, ESC: 27, CH_UP: 427, CH_DOWN: 428 };
+  var COLUMNS = 4, KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009, ESC: 27, CH_UP: 427, CH_DOWN: 428, RED: 403, IME_DONE: 65376, IME_CANCEL: 65385 };
+  var form = document.getElementById('form'), hint = document.getElementById('hint');
+  var fields = [document.getElementById('fName'), document.getElementById('fUrl'), document.getElementById('fSave'), document.getElementById('fCancel')];
+  var fieldIndex = 0, baseChannels = CHANNELS, ownChannels = [];
+  try { ownChannels = JSON.parse(localStorage.getItem('propios') || '[]'); } catch (e) {}
+  CHANNELS = baseChannels.concat(ownChannels);
   var grid = document.getElementById('grid'), player = document.getElementById('player');
   var frame = document.getElementById('frame'), tag = document.getElementById('tag'), clock = document.getElementById('clock');
   var index = 0, tagTimer = null;
@@ -74,7 +100,11 @@
       el.querySelector('.kind').textContent = c.kind || '';
       grid.appendChild(el);
     });
-    index = Math.min(index, CHANNELS.length - 1);
+    var add = document.createElement('article');
+    add.className = 'ch add';
+    add.innerHTML = '<div class="name">+ Agregar</div><div class="kind">Enlace propio</div>';
+    grid.appendChild(add);
+    index = Math.min(index, CHANNELS.length);
     paint();
   }
 
@@ -131,33 +161,94 @@
     paint();
   }
   function zap(step) {
-    index = (index + step + CHANNELS.length) % CHANNELS.length;
+    index = (Math.min(index, CHANNELS.length - 1) + step + CHANNELS.length) % CHANNELS.length;
     paint();
     if (player.classList.contains('open')) { play(); }
+  }
+  function saveOwn() {
+    try { localStorage.setItem('propios', JSON.stringify(ownChannels)); } catch (e) {}
+    CHANNELS = baseChannels.concat(ownChannels);
+    render();
+  }
+  function selectField(i) {
+    fieldIndex = i;
+    fields.forEach(function (el, n) { el.classList.toggle('sel', n === i); });
+    fields[i].focus();
+  }
+  function openForm() {
+    fields[0].value = ''; fields[1].value = ''; hint.textContent = '';
+    form.classList.add('open');
+    selectField(0);
+  }
+  function closeForm() {
+    fields[fieldIndex].blur();
+    form.classList.remove('open');
+  }
+  function submitForm() {
+    var name = fields[0].value.trim(), url = fields[1].value.trim();
+    if (!name || !/^https?:\/\//i.test(url)) { hint.textContent = 'Poné un nombre y un enlace que empiece con http'; return; }
+    ownChannels.push({ name: name, kind: 'Propio', url: url, own: true });
+    closeForm();
+    saveOwn();
+    index = CHANNELS.length - 1;
+    paint();
+  }
+  function formKey(code) {
+    switch (code) {
+      case KEY.UP: selectField(Math.max(fieldIndex - 1, 0)); break;
+      case KEY.DOWN: selectField(Math.min(fieldIndex + 1, 3)); break;
+      case KEY.LEFT: if (fieldIndex === 3) { selectField(2); } else { return false; } break;
+      case KEY.RIGHT: if (fieldIndex === 2) { selectField(3); } else { return false; } break;
+      case KEY.ENTER:
+        if (fieldIndex === 2) { submitForm(); }
+        else if (fieldIndex === 3) { closeForm(); }
+        else { selectField(fieldIndex + 1); }
+        break;
+      case KEY.IME_DONE: selectField(Math.min(fieldIndex + 1, 2)); break;
+      case KEY.IME_CANCEL: fields[fieldIndex].blur(); break;
+      case KEY.BACK:
+      case KEY.ESC: closeForm(); break;
+      default: return false;
+    }
+    return true;
+  }
+  function removeOwn() {
+    var first = baseChannels.length;
+    if (index < first || index >= CHANNELS.length) { return; }
+    ownChannels.splice(index - first, 1);
+    saveOwn();
   }
   function exitApp() {
     try { tizen.application.getCurrentApplication().exit(); } catch (e) { window.close(); }
   }
   function move(step) {
     var next = index + step;
-    if (next >= 0 && next < CHANNELS.length) { index = next; paint(); }
+    if (next >= 0 && next <= CHANNELS.length) { index = next; paint(); }
   }
 
   try {
     if (window.tizen && tizen.tvinputdevice) {
       tizen.tvinputdevice.registerKey('ChannelUp');
       tizen.tvinputdevice.registerKey('ChannelDown');
+      tizen.tvinputdevice.registerKey('ColorF0Red');
     }
   } catch (e) {}
 
   document.addEventListener('keydown', function (ev) {
     var open = player.classList.contains('open');
+    if (form.classList.contains('open')) {
+      if (formKey(ev.keyCode)) { ev.preventDefault(); }
+      return;
+    }
     switch (ev.keyCode) {
       case KEY.CH_UP: zap(1); break;
       case KEY.CH_DOWN: zap(-1); break;
       case KEY.BACK:
       case KEY.ESC: if (open) { stop(); } else { exitApp(); } break;
-      case KEY.ENTER: if (open) { showTag(); } else { play(); } break;
+      case KEY.ENTER:
+        if (open) { showTag(); } else if (index === CHANNELS.length) { openForm(); } else { play(); }
+        break;
+      case KEY.RED: if (!open) { removeOwn(); } break;
       case KEY.LEFT: if (!open) { move(-1); } break;
       case KEY.RIGHT: if (!open) { move(1); } break;
       case KEY.UP: if (!open) { move(-COLUMNS); } break;
@@ -177,7 +268,7 @@
 
   fetch(LIST_URL + '?t=' + Date.now()).then(function (r) { return r.json(); }).then(function (list) {
     var valid = list.filter(function (c) { return c && c.name && (c.id || c.url); });
-    if (valid.length && !player.classList.contains('open')) { CHANNELS = valid; render(); }
+    if (valid.length && !player.classList.contains('open')) { baseChannels = valid; CHANNELS = baseChannels.concat(ownChannels); render(); }
   }).catch(function () {});
 })();
 </script>
