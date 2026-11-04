@@ -12,7 +12,7 @@
   header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:44px; }
   h1 { margin:0; font-size:60px; font-weight:800; letter-spacing:-1px; }
   #clock { font-size:44px; font-weight:300; color:var(--muted); font-variant-numeric:tabular-nums; }
-  #grid { flex:1; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:1fr; gap:24px; min-height:0; }
+  #grid { flex:1; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:232px; gap:24px; min-height:0; overflow:hidden; padding:8px; }
   .ch { position:relative; display:flex; flex-direction:column; justify-content:flex-end; padding:30px; min-width:0;
     background:var(--panel); border:4px solid var(--line); border-radius:14px; }
   .ch .num { position:absolute; top:24px; left:30px; font-size:28px; color:var(--muted); font-variant-numeric:tabular-nums; }
@@ -24,7 +24,8 @@
   footer b { color:var(--text); font-weight:600; }
   #player { position:absolute; inset:0; display:none; background:#000; }
   #player.open { display:block; }
-  #frame { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  #frame,#video { position:absolute; inset:0; width:100%; height:100%; border:0; background:#000; }
+  #video { display:none; }
   #tag { position:absolute; top:44px; left:52px; padding:16px 26px; border-radius:10px; font-size:34px; font-weight:700;
     background:rgba(0,0,0,.78); transition:opacity .4s; }
   #tag i { display:inline-block; width:18px; height:18px; margin-right:14px; border-radius:50%; background:var(--live); }
@@ -39,11 +40,13 @@
 </main>
 <section id="player">
   <iframe id="frame" title="Señal en vivo" allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  <video id="video" autoplay playsinline></video>
   <div id="tag" class="hide"></div>
 </section>
 <script>
 (function () {
-  // Canales oficiales de YouTube: el reproductor toma la emisión en vivo que tenga cada canal.
+  // La lista se edita en canales.json. Esta copia se usa solo si no se puede descargar.
+  var LIST_URL = 'https://raw.githubusercontent.com/Atiraboschi/canales-tv/main/canales.json';
   var CHANNELS = [
     { name: 'TN',         kind: 'Noticias',  id: 'UCj6PcyLvpnIRT_2W_mwa9Aw' },
     { name: 'C5N',        kind: 'Noticias',  id: 'UCFgk2Q2mVO1BklRQhSv6p0w' },
@@ -53,6 +56,7 @@
     { name: 'Canal 26',   kind: 'Noticias',  id: 'UCrpMfcQNog595v5gAS-oUsQ' },
     { name: 'Telefe',     kind: 'General',   id: 'UCHc3el42hXKKhjs_1vzWk9A' }
   ];
+  var video = document.getElementById('video'), hlsPlayer = null;
   var COLUMNS = 4, KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009, ESC: 27, CH_UP: 427, CH_DOWN: 428 };
   var grid = document.getElementById('grid'), player = document.getElementById('player');
   var frame = document.getElementById('frame'), tag = document.getElementById('tag'), clock = document.getElementById('clock');
@@ -60,17 +64,48 @@
 
   try { index = Math.min(parseInt(localStorage.getItem('canal') || '0', 10) || 0, CHANNELS.length - 1); } catch (e) {}
 
-  CHANNELS.forEach(function (c, i) {
-    var el = document.createElement('article');
-    el.className = 'ch';
-    el.innerHTML = '<span class="num">' + (i + 1) + '</span><div class="name"></div><div class="kind"></div>';
-    el.querySelector('.name').textContent = c.name;
-    el.querySelector('.kind').textContent = c.kind;
-    grid.appendChild(el);
-  });
+  function render() {
+    grid.innerHTML = '';
+    CHANNELS.forEach(function (c, i) {
+      var el = document.createElement('article');
+      el.className = 'ch';
+      el.innerHTML = '<span class="num">' + (i + 1) + '</span><div class="name"></div><div class="kind"></div>';
+      el.querySelector('.name').textContent = c.name;
+      el.querySelector('.kind').textContent = c.kind || '';
+      grid.appendChild(el);
+    });
+    index = Math.min(index, CHANNELS.length - 1);
+    paint();
+  }
 
   function paint() {
-    Array.prototype.forEach.call(grid.children, function (el, i) { el.classList.toggle('focus', i === index); });
+    Array.prototype.forEach.call(grid.children, function (el, i) {
+      el.classList.toggle('focus', i === index);
+      if (i === index && el.scrollIntoView) { el.scrollIntoView({ block: 'nearest' }); }
+    });
+  }
+
+  function clearMedia() {
+    if (hlsPlayer) { hlsPlayer.destroy(); hlsPlayer = null; }
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    video.style.display = 'none';
+    frame.style.display = 'block';
+    frame.src = 'about:blank';
+  }
+  function playHls(url) {
+    frame.style.display = 'none';
+    video.style.display = 'block';
+    if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = url; return; }
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+    s.onload = function () {
+      hlsPlayer = new window.Hls();
+      hlsPlayer.loadSource(url);
+      hlsPlayer.attachMedia(video);
+    };
+    document.head.appendChild(s);
   }
   function remember() { try { localStorage.setItem('canal', String(index)); } catch (e) {} }
   function showTag() {
@@ -81,13 +116,17 @@
     tagTimer = setTimeout(function () { tag.classList.add('hide'); }, 3500);
   }
   function play() {
+    var c = CHANNELS[index];
     remember();
-    frame.src = 'https://www.youtube.com/embed/live_stream?channel=' + CHANNELS[index].id + '&autoplay=1&controls=0&rel=0&playsinline=1';
+    clearMedia();
+    if (c.url && /\.m3u8(\?|$)/i.test(c.url)) { playHls(c.url); }
+    else if (c.url) { frame.src = c.url; }
+    else { frame.src = 'https://www.youtube.com/embed/live_stream?channel=' + c.id + '&autoplay=1&controls=0&rel=0&playsinline=1'; }
     player.classList.add('open');
     showTag();
   }
   function stop() {
-    frame.src = 'about:blank';
+    clearMedia();
     player.classList.remove('open');
     paint();
   }
@@ -131,7 +170,12 @@
   }
   tick();
   setInterval(tick, 10000);
-  paint();
+  render();
+
+  fetch(LIST_URL + '?t=' + Date.now()).then(function (r) { return r.json(); }).then(function (list) {
+    var valid = list.filter(function (c) { return c && c.name && (c.id || c.url); });
+    if (valid.length && !player.classList.contains('open')) { CHANNELS = valid; render(); }
+  }).catch(function () {});
 })();
 </script>
 </body>
