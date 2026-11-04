@@ -1,0 +1,13 @@
+[
+  { "name": "TN", "kind": "Noticias", "id": "UCj6PcyLvpnIRT_2W_mwa9Aw" },
+  { "name": "C5N", "kind": "Noticias", "id": "UCFgk2Q2mVO1BklRQhSv6p0w" },
+  { "name": "A24", "kind": "Noticias", "id": "UCR9120YBAqMfntqgRTKmkjQ" },
+  { "name": "LA NACION", "kind": "Noticias", "id": "UCba3hpU7EFBSk817y9qZkiA" },
+  { "name": "Crónica TV", "kind": "Noticias", "id": "UCT7KFGv6s2a-rh2Jq8ZdM1g" },
+  { "name": "Canal 26", "kind": "Noticias", "id": "UCrpMfcQNog595v5gAS-oUsQ" },
+  { "name": "Telefe", "kind": "General", "id": "UCHc3el42hXKKhjs_1vzWk9A" },
+  { "name": "TV Pública", "kind": "Pública", "id": "UCs231K71Bnu5295_x0MB5Pg" },
+  { "name": "eldoce", "kind": "Córdoba", "id": "UCiaePeoCqpU8hBHiNrgkzrA" },
+  { "name": "Canal 10", "kind": "Córdoba", "id": "UCUzonpa3XKurQVycdMY70XQ" },
+  { "name": "Telefe Córdoba", "kind": "Córdoba", "id": "UC3OQ66wEJaOPHK25IBdWR_g" }
+]
