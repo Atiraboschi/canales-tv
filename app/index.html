@@ -135,6 +135,9 @@
     paint();
     if (player.classList.contains('open')) { play(); }
   }
+  function exitApp() {
+    try { tizen.application.getCurrentApplication().exit(); } catch (e) { window.close(); }
+  }
   function move(step) {
     var next = index + step;
     if (next >= 0 && next < CHANNELS.length) { index = next; paint(); }
@@ -153,7 +156,7 @@
       case KEY.CH_UP: zap(1); break;
       case KEY.CH_DOWN: zap(-1); break;
       case KEY.BACK:
-      case KEY.ESC: if (open) { stop(); } else { return; } break;
+      case KEY.ESC: if (open) { stop(); } else { exitApp(); } break;
       case KEY.ENTER: if (open) { showTag(); } else { play(); } break;
       case KEY.LEFT: if (!open) { move(-1); } break;
       case KEY.RIGHT: if (!open) { move(1); } break;
