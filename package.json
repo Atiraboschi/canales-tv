@@ -1,1 +1,10 @@
-{"name":"canales-tv","appName":"Canales","version":"1.0.0","description":"Grilla de señales oficiales en vivo para TizenBrew","packageType":"app","appPath":"app/index.html","keys":["ChannelUp","ChannelDown"],"files":["app"]}
+{
+  "name": "canales-tv",
+  "appName": "Canales",
+  "version": "1.1.0",
+  "description": "Grilla de señales oficiales en vivo para TizenBrew",
+  "packageType": "app",
+  "appPath": "app/index.html",
+  "keys": ["ChannelUp", "ChannelDown"],
+  "files": ["app"]
+}
