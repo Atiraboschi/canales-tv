@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Canales</title>
+<style>
+  :root { --bg:#0d0f12; --panel:#171a1f; --line:#2a2f37; --text:#f3f1ea; --muted:#9a9ea6; --on:#ffb000; --live:#ff3b30; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+    font-family:"SamsungOne","Samsung Sans",Roboto,Helvetica,Arial,sans-serif; }
+  #home { position:absolute; inset:0; padding:64px 88px; display:flex; flex-direction:column; }
+  header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:44px; }
+  h1 { margin:0; font-size:60px; font-weight:800; letter-spacing:-1px; }
+  #clock { font-size:44px; font-weight:300; color:var(--muted); font-variant-numeric:tabular-nums; }
+  #grid { flex:1; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:1fr; gap:24px; min-height:0; }
+  .ch { position:relative; display:flex; flex-direction:column; justify-content:flex-end; padding:30px; min-width:0;
+    background:var(--panel); border:4px solid var(--line); border-radius:14px; }
+  .ch .num { position:absolute; top:24px; left:30px; font-size:28px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .ch .name { font-size:50px; font-weight:800; line-height:1.05; }
+  .ch .kind { margin-top:8px; font-size:26px; color:var(--muted); }
+  .ch.focus { background:var(--on); border-color:var(--on); color:#121212; transform:scale(1.03); }
+  .ch.focus .num,.ch.focus .kind { color:#3c2c00; }
+  footer { margin-top:32px; font-size:28px; color:var(--muted); }
+  footer b { color:var(--text); font-weight:600; }
+  #player { position:absolute; inset:0; display:none; background:#000; }
+  #player.open { display:block; }
+  #frame { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  #tag { position:absolute; top:44px; left:52px; padding:16px 26px; border-radius:10px; font-size:34px; font-weight:700;
+    background:rgba(0,0,0,.78); transition:opacity .4s; }
+  #tag i { display:inline-block; width:18px; height:18px; margin-right:14px; border-radius:50%; background:var(--live); }
+  #tag.hide { opacity:0; }
+</style>
+</head>
+<body>
+<main id="home">
+  <header><h1>Canales</h1><div id="clock"></div></header>
+  <section id="grid"></section>
+  <footer><b>OK</b> mirar &nbsp;·&nbsp; <b>CH +/−</b> cambiar de canal &nbsp;·&nbsp; <b>Volver</b> salir del canal</footer>
+</main>
+<section id="player">
+  <iframe id="frame" title="Señal en vivo" allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  <div id="tag" class="hide"></div>
+</section>
+<script>
+(function () {
+  // Canales oficiales de YouTube: el reproductor toma la emisión en vivo que tenga cada canal.
+  var CHANNELS = [
+    { name: 'TN',         kind: 'Noticias',  id: 'UCj6PcyLvpnIRT_2W_mwa9Aw' },
+    { name: 'C5N',        kind: 'Noticias',  id: 'UCFgk2Q2mVO1BklRQhSv6p0w' },
+    { name: 'A24',        kind: 'Noticias',  id: 'UCR9120YBAqMfntqgRTKmkjQ' },
+    { name: 'LA NACION',  kind: 'Noticias',  id: 'UCba3hpU7EFBSk817y9qZkiA' },
+    { name: 'Crónica TV', kind: 'Noticias',  id: 'UCT7KFGv6s2a-rh2Jq8ZdM1g' },
+    { name: 'Canal 26',   kind: 'Noticias',  id: 'UCrpMfcQNog595v5gAS-oUsQ' },
+    { name: 'Telefe',     kind: 'General',   id: 'UCHc3el42hXKKhjs_1vzWk9A' }
+  ];
+  var COLUMNS = 4, KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009, ESC: 27, CH_UP: 427, CH_DOWN: 428 };
+  var grid = document.getElementById('grid'), player = document.getElementById('player');
+  var frame = document.getElementById('frame'), tag = document.getElementById('tag'), clock = document.getElementById('clock');
+  var index = 0, tagTimer = null;
+
+  try { index = Math.min(parseInt(localStorage.getItem('canal') || '0', 10) || 0, CHANNELS.length - 1); } catch (e) {}
+
+  CHANNELS.forEach(function (c, i) {
+    var el = document.createElement('article');
+    el.className = 'ch';
+    el.innerHTML = '<span class="num">' + (i + 1) + '</span><div class="name"></div><div class="kind"></div>';
+    el.querySelector('.name').textContent = c.name;
+    el.querySelector('.kind').textContent = c.kind;
+    grid.appendChild(el);
+  });
+
+  function paint() {
+    Array.prototype.forEach.call(grid.children, function (el, i) { el.classList.toggle('focus', i === index); });
+  }
+  function remember() { try { localStorage.setItem('canal', String(index)); } catch (e) {} }
+  function showTag() {
+    tag.innerHTML = '<i></i>';
+    tag.appendChild(document.createTextNode(CHANNELS[index].name));
+    tag.classList.remove('hide');
+    clearTimeout(tagTimer);
+    tagTimer = setTimeout(function () { tag.classList.add('hide'); }, 3500);
+  }
+  function play() {
+    remember();
+    frame.src = 'https://www.youtube.com/embed/live_stream?channel=' + CHANNELS[index].id + '&autoplay=1&controls=0&rel=0&playsinline=1';
+    player.classList.add('open');
+    showTag();
+  }
+  function stop() {
+    frame.src = 'about:blank';
+    player.classList.remove('open');
+    paint();
+  }
+  function zap(step) {
+    index = (index + step + CHANNELS.length) % CHANNELS.length;
+    paint();
+    if (player.classList.contains('open')) { play(); }
+  }
+  function move(step) {
+    var next = index + step;
+    if (next >= 0 && next < CHANNELS.length) { index = next; paint(); }
+  }
+
+  try {
+    if (window.tizen && tizen.tvinputdevice) {
+      tizen.tvinputdevice.registerKey('ChannelUp');
+      tizen.tvinputdevice.registerKey('ChannelDown');
+    }
+  } catch (e) {}
+
+  document.addEventListener('keydown', function (ev) {
+    var open = player.classList.contains('open');
+    switch (ev.keyCode) {
+      case KEY.CH_UP: zap(1); break;
+      case KEY.CH_DOWN: zap(-1); break;
+      case KEY.BACK:
+      case KEY.ESC: if (open) { stop(); } else { return; } break;
+      case KEY.ENTER: if (open) { showTag(); } else { play(); } break;
+      case KEY.LEFT: if (!open) { move(-1); } break;
+      case KEY.RIGHT: if (!open) { move(1); } break;
+      case KEY.UP: if (!open) { move(-COLUMNS); } break;
+      case KEY.DOWN: if (!open) { move(COLUMNS); } break;
+      default: return;
+    }
+    ev.preventDefault();
+  });
+
+  function tick() {
+    var d = new Date();
+    clock.textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+  tick();
+  setInterval(tick, 10000);
+  paint();
+})();
+</script>
+</body>
+</html>
